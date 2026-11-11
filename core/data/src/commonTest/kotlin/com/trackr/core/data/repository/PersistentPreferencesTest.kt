@@ -35,6 +35,23 @@ class PersistentPreferencesTest {
     }
 
     @Test
+    fun savedShenzhenWithPutianId_isRepairedOnOpen() = runTest {
+        val store = MemoryPreferencesStore(
+            TransitLocalSnapshot(
+                selectedCityJson = """{"cityId":"051","cityName":"深圳","pinyin":"ShenZhen","province":"广东"}"""
+            )
+        )
+        val writer = SerialWriter(backgroundScope)
+        val settings = DefaultSettingsRepository.create(store, writer)
+        assertEquals("014", settings.selectedCity.value.cityId)
+        assertEquals("深圳", settings.selectedCity.value.cityName)
+        settings.flushWrites()
+        assertTrue(store.snapshot.selectedCityJson!!.contains("\"cityId\":\"014\""))
+        val reopened = DefaultSettingsRepository.create(store, writer)
+        assertEquals("014", reopened.selectedCity.value.cityId)
+    }
+
+    @Test
     fun malformedValuesFallBackToUsableDefaults() = runTest {
         val store = MemoryPreferencesStore(TransitLocalSnapshot(
             selectedCityJson = "{broken", engineMode = "unknown", themeColorsJson = "not json",

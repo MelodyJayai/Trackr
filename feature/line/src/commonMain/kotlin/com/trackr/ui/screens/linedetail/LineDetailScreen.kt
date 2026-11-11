@@ -107,6 +107,8 @@ import com.trackr.feature.line.resources.line_detail_error
 import com.trackr.feature.line.resources.line_detail_fare
 import com.trackr.feature.line.resources.line_detail_diversion_body
 import com.trackr.feature.line.resources.line_detail_hours
+import com.trackr.feature.line.resources.line_detail_loop
+import com.trackr.feature.line.resources.line_detail_loop_plain
 import com.trackr.feature.line.resources.line_detail_loading
 import com.trackr.feature.line.resources.line_detail_reminder
 import com.trackr.feature.line.resources.line_detail_reverse
@@ -544,6 +546,23 @@ private fun DirectionHeader(
             softWrap = false,
             modifier = Modifier.overflowMarquee()
         )
+        when (val caption = loopLineCaption(static)) {
+            null -> Unit
+            is LoopLineCaption.Via -> Text(
+                text = stringResource(LineRes.string.line_detail_loop, caption.midStop),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            LoopLineCaption.Plain -> Text(
+                text = stringResource(LineRes.string.line_detail_loop_plain),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             val meta = listOfNotNull(
                 stringResource(LineRes.string.line_detail_hours, line.firstTime.ifEmpty { "—" }, line.lastTime.ifEmpty { "—" }),

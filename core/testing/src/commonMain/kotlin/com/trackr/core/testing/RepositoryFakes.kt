@@ -19,6 +19,7 @@ import com.trackr.core.model.FavoriteStation
 import com.trackr.core.model.FavoriteStationLine
 import com.trackr.core.model.LineTimetable
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitCodeProvider
 import com.trackr.core.model.TransitGroup
@@ -392,6 +393,9 @@ class FakeRealtimeRepository(
     /** 可按查询坐标返回不同结果；为 null 时统一返回 [nearbyStopsResult] */
     var nearbyStopsResultProvider: ((TransitCity, Double, Double) -> Result<List<NearbyStop>>)? = null
 
+    /** 车来了 toast。非空时跟在成功的附近站结果上，失败结果不带。 */
+    var nearbyNotice: String? = null
+
     override suspend fun getSupportedCities(forceRefresh: Boolean): Result<List<TransitCity>> = supportedCitiesResult
 
     override suspend fun resolveCityByLocation(wgsLat: Double, wgsLng: Double): Result<TransitCity?> =
@@ -402,10 +406,12 @@ class FakeRealtimeRepository(
         wgsLat: Double,
         wgsLng: Double,
         limit: Int
-    ): Result<List<NearbyStop>> {
+    ): Result<NearbyStopsPage> {
         nearbyStopsCalls += Triple(city, wgsLat, wgsLng)
         nearbyStopsLimits += limit
-        return nearbyStopsResultProvider?.invoke(city, wgsLat, wgsLng) ?: nearbyStopsResult
+        val stops = nearbyStopsResultProvider?.invoke(city, wgsLat, wgsLng) ?: nearbyStopsResult
+        val notice = nearbyNotice?.takeIf { it.isNotBlank() }
+        return stops.map { NearbyStopsPage(stops = it, notice = notice) }
     }
 
     override suspend fun getStopDetail(

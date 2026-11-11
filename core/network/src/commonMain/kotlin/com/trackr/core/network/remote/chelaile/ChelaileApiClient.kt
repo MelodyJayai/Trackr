@@ -12,6 +12,7 @@ import com.trackr.core.model.LineOperatingState
 import com.trackr.core.model.LineTimetable
 import com.trackr.core.model.LiveBus
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.NearbyStopLineStatus
 import com.trackr.core.model.ProvinceCityCatalog
 import com.trackr.core.model.TimetableSegment
@@ -89,51 +90,6 @@ class ChelaileApiClient(
             "Accept-Language" to "zh-CN,zh;q=0.9"
         )
 
-        private val FALLBACK_CITIES = listOf(
-            TransitCity(cityId = "034", cityName = "上海", pinyin = "ShangHai", supportSubway = true, isHot = true, province = "直辖市"),
-            TransitCity(cityId = "027", cityName = "北京", pinyin = "BeiJing", supportSubway = true, isHot = true, province = "直辖市"),
-            TransitCity(cityId = "007", cityName = "广州", pinyin = "GuangZhou", supportSubway = true, isHot = true, province = "广东"),
-            TransitCity(cityId = "051", cityName = "深圳", pinyin = "ShenZhen", supportSubway = true, isHot = true, province = "广东"),
-            TransitCity(cityId = "014", cityName = "杭州", pinyin = "HangZhou", supportSubway = true, isHot = true, province = "浙江"),
-            TransitCity(cityId = "068", cityName = "成都", pinyin = "ChengDu", supportSubway = true, isHot = true, province = "四川"),
-            TransitCity(cityId = "004", cityName = "武汉", pinyin = "WuHan", supportSubway = true, isHot = true, province = "湖北"),
-            TransitCity(cityId = "048", cityName = "南京", pinyin = "NanJing", supportSubway = true, isHot = true, province = "江苏"),
-            TransitCity(cityId = "015", cityName = "重庆", pinyin = "ChongQing", supportSubway = true, isHot = true, province = "直辖市"),
-            TransitCity(cityId = "011", cityName = "天津", pinyin = "TianJin", supportSubway = true, isHot = true, province = "直辖市"),
-            TransitCity(cityId = "025", cityName = "苏州", pinyin = "SuZhou", supportSubway = true, isHot = true, province = "江苏"),
-            TransitCity(cityId = "026", cityName = "西安", pinyin = "XiAn", supportSubway = true, isHot = true, province = "陕西"),
-            TransitCity(cityId = "012", cityName = "长沙", pinyin = "ChangSha", supportSubway = true, isHot = true, province = "湖南"),
-            TransitCity(cityId = "038", cityName = "郑州", pinyin = "ZhengZhou", supportSubway = true, isHot = true, province = "河南"),
-            TransitCity(cityId = "050", cityName = "宁波", pinyin = "NingBo", supportSubway = true, isHot = true, province = "浙江"),
-            TransitCity(cityId = "017", cityName = "青岛", pinyin = "QingDao", supportSubway = true, isHot = true, province = "山东"),
-            TransitCity(cityId = "008", cityName = "佛山", pinyin = "FoShan", supportSubway = true, isHot = true, province = "广东"),
-            TransitCity(cityId = "031", cityName = "东莞", pinyin = "DongGuan", supportSubway = true, isHot = true, province = "广东"),
-            TransitCity(cityId = "047", cityName = "昆明", pinyin = "KunMing", supportSubway = true, isHot = true, province = "云南"),
-            TransitCity(cityId = "021", cityName = "合肥", pinyin = "HeFei", supportSubway = true, isHot = true, province = "安徽"),
-            TransitCity(cityId = "024", cityName = "无锡", pinyin = "WuXi", supportSubway = true, isHot = true, province = "江苏"),
-            TransitCity(cityId = "036", cityName = "厦门", pinyin = "XiaMen", supportSubway = true, isHot = true, province = "福建"),
-            TransitCity(cityId = "018", cityName = "福州", pinyin = "FuZhou", supportSubway = true, isHot = true, province = "福建"),
-            TransitCity(cityId = "045", cityName = "济南", pinyin = "JiNan", supportSubway = true, isHot = true, province = "山东"),
-            TransitCity(cityId = "053", cityName = "南宁", pinyin = "NanNing", supportSubway = true, isHot = true, province = "广西"),
-            TransitCity(cityId = "035", cityName = "沈阳", pinyin = "ShenYang", supportSubway = true, isHot = true, province = "辽宁"),
-            TransitCity(cityId = "016", cityName = "大连", pinyin = "DaLian", supportSubway = true, isHot = false, province = "辽宁"),
-            TransitCity(cityId = "033", cityName = "哈尔滨", pinyin = "HaErBin", supportSubway = true, isHot = false, province = "黑龙江"),
-            TransitCity(cityId = "044", cityName = "长春", pinyin = "ChangChun", supportSubway = true, isHot = false, province = "吉林"),
-            TransitCity(cityId = "052", cityName = "贵阳", pinyin = "GuiYang", supportSubway = true, isHot = false, province = "贵州"),
-            TransitCity(cityId = "037", cityName = "南昌", pinyin = "NanChang", supportSubway = true, isHot = false, province = "江西"),
-            TransitCity(cityId = "039", cityName = "石家庄", pinyin = "ShiJiaZhuang", supportSubway = true, isHot = false, province = "河北"),
-            TransitCity(cityId = "036", cityName = "太原", pinyin = "TaiYuan", supportSubway = true, isHot = false, province = "山西"),
-            TransitCity(cityId = "058", cityName = "兰州", pinyin = "LanZhou", supportSubway = true, isHot = false, province = "甘肃"),
-            TransitCity(cityId = "054", cityName = "海口", pinyin = "HaiKou", supportSubway = false, isHot = false, province = "海南"),
-            TransitCity(cityId = "087", cityName = "三亚", pinyin = "SanYa", supportSubway = false, isHot = false, province = "海南"),
-            TransitCity(cityId = "091", cityName = "呼和浩特", pinyin = "HuHeHaoTe", supportSubway = true, isHot = false, province = "内蒙古"),
-            TransitCity(cityId = "099", cityName = "乌鲁木齐", pinyin = "WuLuMuQi", supportSubway = true, isHot = false, province = "新疆"),
-            TransitCity(cityId = "105", cityName = "银川", pinyin = "YinChuan", supportSubway = false, isHot = false, province = "宁夏"),
-            TransitCity(cityId = "106", cityName = "西宁", pinyin = "XiNing", supportSubway = false, isHot = false, province = "青海"),
-            TransitCity(cityId = "088", cityName = "桂林", pinyin = "GuiLin", supportSubway = false, isHot = false, province = "广西"),
-            TransitCity(cityId = "062", cityName = "柳州", pinyin = "LiuZhou", supportSubway = false, isHot = false, province = "广西"),
-            TransitCity(cityId = "440", cityName = "玉林", pinyin = "YuLin", supportSubway = false, isHot = false, mygolbsCityCode = "450900", province = "广西")
-        )
     }
 
     /** GET [endpoint]，query 按 [params] 的顺序追加，带上小程序的请求头 */
@@ -189,40 +145,42 @@ class ChelaileApiClient(
     }
 
     /**
-     * 获取支持的城市列表。若网络异常或接口受限，自动回退到内置主流城市列表。
+     * 获取支持的城市列表。
+     *
+     * 网络失败或返回空表时抛错，由调用方改用 [com.trackr.core.model.ChelaileCitySnapshot]，
+     * 并且不要把那份快照当成已经从服务器确认过的列表缓存下来。
      */
     suspend fun getCities(hotOnly: Boolean = false): List<TransitCity> = withContext(Dispatchers.IO) {
-        try {
-            val json = executePlain("$BASE_DOMAIN/wwd/ncitylist", DEFAULT_PARAMS, sign = false)
-            val dataObj = json.optJSONObject("jsonr")?.optJSONObject("data")
-                ?: json.optJSONObject("data")
-                ?: json
-            val listArr = dataObj.optJSONArray("cityList") ?: JSONArray()
-            val result = ArrayList<TransitCity>()
-            for (i in 0 until listArr.length()) {
-                val item = listArr.getJSONObject(i)
-                val isHot = item.optInt("isHot", 0) == 1
-                if (hotOnly && !isHot) continue
-                val cityName = item.optString("cityName")
-                val cityId = item.optString("cityId")
-                val mygolbsCode = if (cityName == "玉林" || cityName == "玉林市") "450900" else null
-                val prov = item.optString("province").ifBlank { ProvinceCityCatalog.inferProvince(cityName) }
-                result.add(
-                    TransitCity(
-                        cityId = cityId,
-                        cityName = cityName,
-                        pinyin = item.optString("pinyin"),
-                        supportSubway = item.optInt("supportSubway", 0) == 1,
-                        isHot = isHot,
-                        mygolbsCityCode = mygolbsCode,
-                        province = prov
-                    )
+        val json = executePlain("$BASE_DOMAIN/wwd/ncitylist", DEFAULT_PARAMS, sign = false)
+        val dataObj = json.optJSONObject("jsonr")?.optJSONObject("data")
+            ?: json.optJSONObject("data")
+            ?: json
+        val listArr = dataObj.optJSONArray("cityList") ?: JSONArray()
+        val result = ArrayList<TransitCity>()
+        for (i in 0 until listArr.length()) {
+            val item = listArr.getJSONObject(i)
+            val isHot = item.optInt("isHot", 0) == 1
+            if (hotOnly && !isHot) continue
+            val cityName = item.optString("cityName")
+            val cityId = item.optString("cityId")
+            val mygolbsCode = if (cityName == "玉林" || cityName == "玉林市") "450900" else null
+            val prov = item.optString("province").ifBlank { ProvinceCityCatalog.inferProvince(cityName) }
+            result.add(
+                TransitCity(
+                    cityId = cityId,
+                    cityName = cityName,
+                    pinyin = item.optString("pinyin"),
+                    supportSubway = item.optInt("supportSubway", 0) == 1,
+                    isHot = isHot,
+                    mygolbsCityCode = mygolbsCode,
+                    province = prov
                 )
-            }
-            if (result.isNotEmpty()) result else FALLBACK_CITIES.filter { !hotOnly || it.isHot }
-        } catch (_: Exception) {
-            FALLBACK_CITIES.filter { !hotOnly || it.isHot }
+            )
         }
+        if (result.isEmpty()) {
+            throw IOException("Chelaile city list was empty")
+        }
+        result
     }
 
     /** 逆地理结果：[cityName] 为清洗后的地级市名，[rawDistrict] 为未清洗的区县名（如 "北流市"、"玉州区"） */
@@ -445,7 +403,7 @@ class ChelaileApiClient(
         wgsLat: Double,
         wgsLng: Double,
         limit: Int = 4
-    ): List<NearbyStop> = withContext(Dispatchers.IO) {
+    ): NearbyStopsPage = withContext(Dispatchers.IO) {
         val params = LinkedHashMap(DEFAULT_PARAMS).apply {
             put("cityId", cityId)
             put("localCityId", "undefined")
@@ -457,6 +415,9 @@ class ChelaileApiClient(
             put("permission", "0")
         }
         val data = executeEncrypted("$BASE_URL/bus/stop!encryptedHomePage.action", params)
+        // 城市编号和坐标对不上时，上游会改返回该城市市中心的站，并把原因写在 toast 里。
+        // 以前这里把 toast 丢掉，用户只能看到一串完全不在身边的站名。
+        val notice = data.optString("toast").trim().takeIf { it.isNotBlank() }
         val nearStsArr = data.optJSONArray("nearSts") ?: JSONArray()
         val result = ArrayList<NearbyStop>()
 
@@ -499,7 +460,7 @@ class ChelaileApiClient(
                 )
             )
         }
-        result
+        NearbyStopsPage(stops = result, notice = notice)
     }
 
     /**
@@ -707,7 +668,8 @@ class ChelaileApiClient(
             firstTime = firstTime,
             lastTime = lastTime,
             price = price,
-            source = DataSourceType.CHELAILE
+            source = DataSourceType.CHELAILE,
+            loopMidStopName = lineObj.optString("loopMidStopName").trim()
         )
 
         // 反向线路：otherlines 为空 = 这条线没有对向（单程 / 环线 / 上游没维护）。

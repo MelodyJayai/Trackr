@@ -102,7 +102,12 @@ data class BusLineDirection(
     val price: String = "",
     val source: DataSourceType = DataSourceType.CHELAILE,
     val mygolbsCityCode: String = "",
-    val mygolbsCityName: String = ""
+    val mygolbsCityName: String = "",
+    /**
+     * 环线折返站（车来了线路详情 `line.loopMidStopName`，如「六约新村东」）。
+     * 空串表示不是环线，或上游没给。没有反向线路时页面用它说明为什么没有换向按钮。
+     */
+    val loopMidStopName: String = ""
 )
 
 /**
@@ -242,6 +247,17 @@ data class NearbyStop(
     val lines: List<NearbyStopLineStatus> = emptyList(),
     val subwayLineNames: List<String> = emptyList(),
     val source: DataSourceType = DataSourceType.CHELAILE
+)
+
+/**
+ * 一次附近站查询。
+ *
+ * [notice] 是数据源附带的提示。车来了在坐标和 cityId 对不上时会把站点换成该城市市中心，
+ * 并在 `toast` 里说明（例如「未找到附近车站，已为您选择莆田市中心的车站」）。空着表示没有这句提示。
+ */
+data class NearbyStopsPage(
+    val stops: List<NearbyStop> = emptyList(),
+    val notice: String? = null
 )
 
 /**

@@ -146,6 +146,44 @@ class BusHomeViewModelTest {
     }
 
     @Test
+    fun nearbyCityNotice_isShownOnce() = runTest(main.dispatcher) {
+        fakeRepository.realtime.nearbyNotice = "未找到附近车站，已为您选择莆田市中心的车站"
+        val viewModel = createViewModel()
+        testScheduler.runCurrent()
+
+        assertEquals(
+            listOf("未找到附近车站，已为您选择莆田市中心的车站"),
+            viewModel.uiState.value.userMessages.map { it.text }
+        )
+        viewModel.onEvent(BusHomeEvent.MessageShown(viewModel.uiState.value.userMessages.single().id))
+        testScheduler.runCurrent()
+        viewModel.refresh()
+        testScheduler.runCurrent()
+        assertTrue(viewModel.uiState.value.userMessages.isEmpty())
+    }
+
+    @Test
+    fun correctedCityId_keepsCoordinatesAndReloadsNearby() = runTest(main.dispatcher) {
+        val viewModel = createViewModel()
+        testScheduler.runCurrent()
+        viewModel.selectCity(TransitCity(cityId = "051", cityName = "深圳", province = "广东"))
+        testScheduler.runCurrent()
+        val lat = viewModel.uiState.value.currentLat
+        val lng = viewModel.uiState.value.currentLng
+        val calls = fakeRepository.nearbyStopsCalls.size
+
+        fakeRepository.settings.selectCity(TransitCity(cityId = "014", cityName = "深圳", province = "广东"))
+        testScheduler.runCurrent()
+
+        assertEquals("014", viewModel.uiState.value.currentCity.cityId)
+        assertEquals("深圳", viewModel.uiState.value.currentCity.cityName)
+        assertEquals(lat, viewModel.uiState.value.currentLat)
+        assertEquals(lng, viewModel.uiState.value.currentLng)
+        assertEquals(calls + 1, fakeRepository.nearbyStopsCalls.size)
+        assertEquals("014", fakeRepository.nearbyStopsCalls.last().first.cityId)
+    }
+
+    @Test
     fun testInitialState_loadsSelectedCityAndObservesRepository() = runTest(main.dispatcher) {
         val viewModel = createViewModel()
         testScheduler.runCurrent()
