@@ -16,8 +16,11 @@ import com.trackr.core.domain.platform.ProcessMonotonicClock
 import com.trackr.core.domain.platform.SystemSettingsLauncher
 import com.trackr.core.domain.platform.TrackingController
 import com.trackr.core.domain.platform.TransitCodeLauncher
+import com.trackr.core.model.ChelaileCitySnapshot
 import com.trackr.core.model.EngineMode
 import com.trackr.core.model.FavoriteItem
+import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.ProvinceCityCatalog
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitCodeProvider
@@ -86,6 +89,9 @@ class BusHomeViewModel(
 
     private var nextMessageId = 1L
 
+    /** 同一句城市提示只说一次，避免 15 秒轮询把 toast 反复弹出来 */
+    private val shownNearbyNotices = HashSet<String>()
+
     internal val pollingCoordinator = PollingCoordinator(
         scope = viewModelScope,
         strategy = FixedDelayPollingStrategy(POLLING_INTERVAL_MS),
@@ -105,9 +111,11 @@ class BusHomeViewModel(
                 limit = NEARBY_STOPS_LIMIT
             )
             val favResult = realtime.refreshFavoritesRealtime()
+            val nearbyPage = nearbyResult.getOrNull()
+            nearbyPage?.notice?.let { showNearbyNotice(it) }
             edit {
                 it.copy(
-                    nearbyStops = nearbyResult.getOrNull() ?: it.nearbyStops,
+                    nearbyStops = nearbyPage?.stops ?: it.nearbyStops,
                     favoritesRealtime = favResult.getOrNull() ?: it.favoritesRealtime
                 )
             }
@@ -137,13 +145,20 @@ class BusHomeViewModel(
                 if (state.currentCity.cityId == city.cityId && state.currentCity.cityName == city.cityName) {
                     return@collect
                 }
+                val sameName = ProvinceCityCatalog.cleanCityName(city.cityName) ==
+                    ProvinceCityCatalog.cleanCityName(state.currentCity.cityName)
                 val isSameAsLocated = city.matchesCity(state.locatedCity)
-                if (isSameAsLocated) {
+                // 只是把错误的 cityId 改成这个城市真正的编号：人还在原地，别跳去市中心
+                if (sameName || isSameAsLocated) {
+                    val previousId = state.currentCity.cityId
                     edit {
                         it.copy(
                             currentCity = city,
                             selectedProvince = city.province.ifBlank { ProvinceCityCatalog.inferProvince(city.cityName) }
                         )
+                    }
+                    if (sameName && previousId != city.cityId && state.currentLat > 0.0 && state.currentLng > 0.0) {
+                        loadNearbyStops(state.currentLat, state.currentLng, cityOverride = city)
                     }
                 } else {
                     val coords = ProvinceCityCatalog.getCityCenterCoordinates(city.cityName)
@@ -263,18 +278,7 @@ class BusHomeViewModel(
         }
     }
 
-    private fun fallbackCities(): List<TransitCity> = listOf(
-        TransitCity(cityId = "034", cityName = "上海", pinyin = "shanghai", supportSubway = true, isHot = true, province = "直辖市"),
-        TransitCity(cityId = "027", cityName = "北京", pinyin = "beijing", supportSubway = true, isHot = true, province = "直辖市"),
-        TransitCity(cityId = "007", cityName = "广州", pinyin = "guangzhou", supportSubway = true, isHot = true, province = "广东"),
-        TransitCity(cityId = "051", cityName = "深圳", pinyin = "shenzhen", supportSubway = true, isHot = true, province = "广东"),
-        TransitCity(cityId = "015", cityName = "杭州", pinyin = "hangzhou", supportSubway = true, isHot = true, province = "浙江"),
-        TransitCity(cityId = "055", cityName = "南京", pinyin = "nanjing", supportSubway = true, isHot = true, province = "江苏"),
-        TransitCity(cityId = "028", cityName = "武汉", pinyin = "wuhan", supportSubway = true, isHot = true, province = "湖北"),
-        TransitCity(cityId = "050", cityName = "成都", pinyin = "chengdu", supportSubway = true, isHot = true, province = "四川"),
-        TransitCity(cityId = "036", cityName = "重庆", pinyin = "chongqing", supportSubway = true, isHot = true, province = "直辖市"),
-        TransitCity(cityId = "440", cityName = "玉林", pinyin = "yulin", supportSubway = false, isHot = true, mygolbsCityCode = "450900", province = "广西")
-    )
+    private fun fallbackCities(): List<TransitCity> = ChelaileCitySnapshot.cities()
 
     private fun loadSupportedCities() {
         viewModelScope.launch {
@@ -333,7 +337,7 @@ class BusHomeViewModel(
             }
             val targetCity = cityOverride ?: _uiState.value.currentCity
             val result = realtime.getNearbyStops(targetCity, lat, lng, limit = NEARBY_STOPS_LIMIT)
-            val stops = result.getOrNull().orEmpty()
+            val stops = stopsOf(result)
             edit {
                 it.copy(
                     nearbyStops = stops,
@@ -433,14 +437,15 @@ class BusHomeViewModel(
                 }
 
                 val firstResult = realtime.getNearbyStops(targetCity, lat, lng, limit = NEARBY_STOPS_LIMIT)
-                var stops = firstResult.getOrNull().orEmpty()
+                var stops = stopsOf(firstResult)
 
                 // 人不在已选城市（如出差在外）时，GPS 坐标查不到该城市的站点：改用已选城市中心点再查一次
                 if (stops.isEmpty() && gpsLocation != null && !targetCity.matchesCity(_uiState.value.locatedCity)) {
                     val center = ProvinceCityCatalog.findCityCenterCoordinates(targetCity.cityName)
                     if (center != null) {
-                        stops = realtime.getNearbyStops(targetCity, center.first, center.second, limit = NEARBY_STOPS_LIMIT)
-                            .getOrNull().orEmpty()
+                        stops = stopsOf(
+                            realtime.getNearbyStops(targetCity, center.first, center.second, limit = NEARBY_STOPS_LIMIT)
+                        )
                         edit { it.copy(currentLat = center.first, currentLng = center.second) }
                     }
                 }
@@ -608,6 +613,18 @@ class BusHomeViewModel(
 
     fun onMessageShown(id: Long) {
         edit { state -> state.copy(userMessages = state.userMessages.filterNot { it.id == id }) }
+    }
+
+    private fun stopsOf(result: Result<NearbyStopsPage>): List<NearbyStop> {
+        val page = result.getOrNull()
+        page?.notice?.let { showNearbyNotice(it) }
+        return page?.stops.orEmpty()
+    }
+
+    private fun showNearbyNotice(notice: String) {
+        val text = notice.trim()
+        if (text.isEmpty() || !shownNearbyNotices.add(text)) return
+        addMessage(text, elderText = text)
     }
 
     private fun addMessage(text: String, elderText: String? = null) {

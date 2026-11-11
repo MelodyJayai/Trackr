@@ -5,6 +5,7 @@ import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.LineTimetable
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitSearchResult
 import com.trackr.core.network.provider.model.LineDetailRequest
@@ -44,6 +45,17 @@ interface ITransitProvider {
         wgsLng: Double,
         limit: Int = 4
     ): List<NearbyStop>
+
+    /**
+     * 附近站，并带上数据源给的城市提示（没有就是 null）。
+     * 默认实现不带提示；车来了会把 `toast` 放进 [NearbyStopsPage.notice]。
+     */
+    suspend fun getNearbyStopsPage(
+        city: TransitCity,
+        wgsLat: Double,
+        wgsLng: Double,
+        limit: Int = 4
+    ): NearbyStopsPage = NearbyStopsPage(stops = getNearbyStops(city, wgsLat, wgsLng, limit))
     suspend fun getStopDetail(
         city: TransitCity,
         request: StopDetailRequest

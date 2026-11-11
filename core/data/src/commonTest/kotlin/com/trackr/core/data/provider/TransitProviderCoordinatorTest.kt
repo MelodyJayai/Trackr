@@ -368,7 +368,9 @@ class TransitProviderCoordinatorTest {
             TransitCity(cityId = "", cityName = "北流市", mygolbsCityCode = "450981")
         )
 
-        val cities = coordinator.getSupportedCities(forceRefresh = true)
+        val loaded = coordinator.getSupportedCities(forceRefresh = true)
+        val cities = loaded.cities
+        assertTrue(loaded.authoritative)
 
         // 验证城市列表聚合去重：上海与上海市只保留前者“上海”，北流追加合入，共4个城市
         assertEquals(4, cities.size)
@@ -393,9 +395,28 @@ class TransitProviderCoordinatorTest {
 
         // 验证缓存有效：forceRefresh = false 时不再调用底层 provider
         val cached = coordinator.getSupportedCities(forceRefresh = false)
-        assertEquals(cities.size, cached.size)
+        assertEquals(cities.size, cached.cities.size)
+        assertTrue(cached.authoritative)
         assertEquals(1, fakeChelaileProvider.supportedCitiesCallCount)
         assertEquals(1, fakeMygolbsProvider.supportedCitiesCallCount)
+    }
+
+    @Test
+    fun testGetSupportedCities_whenChelaileEmpty_usesSnapshotAndDoesNotCacheIt() = runBlocking {
+        fakeChelaileProvider.supportedCitiesResult = emptyList()
+        fakeMygolbsProvider.supportedCitiesResult = emptyList()
+
+        val first = coordinator.getSupportedCities()
+        val shenzhen = first.cities.first { it.cityName == "深圳" }
+        val putian = first.cities.first { it.cityName == "莆田" }
+        assertEquals("014", shenzhen.cityId)
+        assertEquals("051", putian.cityId)
+        assertFalse(first.authoritative)
+
+        val second = coordinator.getSupportedCities()
+        assertFalse(second.authoritative)
+        assertEquals(2, fakeChelaileProvider.supportedCitiesCallCount)
+        assertEquals(2, fakeMygolbsProvider.supportedCitiesCallCount)
     }
 
     @Test

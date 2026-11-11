@@ -18,7 +18,9 @@ import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.EngineMode
 import com.trackr.core.model.LineTimetable
+import com.trackr.core.model.CityIdRepair
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.ProvinceCityCatalog
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitCodeProvider
@@ -156,15 +158,23 @@ class TransitRepository(
     )
 
     private fun loadInitialCity(): TransitCity {
-        val cityJson = initial.selectedCityJson
-        if (!cityJson.isNullOrBlank()) {
+        val parsed = initial.selectedCityJson?.takeIf { it.isNotBlank() }?.let { cityJson ->
             try {
                 val city = json.decodeFromString<TransitCity>(cityJson)
                 val prov = if (city.province.isNotBlank()) city.province else ProvinceCityCatalog.inferProvince(city.cityName)
-                return city.copy(province = prov)
-            } catch (_: Exception) {}
+                city.copy(province = prov)
+            } catch (_: Exception) {
+                null
+            }
         }
-        return TransitCity(cityId = "034", cityName = "上海", pinyin = "ShangHai", supportSubway = true, isHot = true, province = "直辖市")
+        val base = parsed ?: TransitCity(
+            cityId = "034", cityName = "上海", pinyin = "ShangHai", supportSubway = true, isHot = true, province = "直辖市"
+        )
+        val repaired = CityIdRepair.repairSnapshotMismatch(base)
+        if (parsed != null && repaired != parsed) {
+            writer.enqueue { store.saveSelectedCityJson(json.encodeToString(repaired)) }
+        }
+        return repaired
     }
 
     override fun setNearbyStopsCount(count: Int) {
@@ -270,7 +280,7 @@ class TransitRepository(
         wgsLat: Double,
         wgsLng: Double,
         limit: Int
-    ): Result<List<NearbyStop>> = realtime.getNearbyStops(city, wgsLat, wgsLng, limit)
+    ): Result<NearbyStopsPage> = realtime.getNearbyStops(city, wgsLat, wgsLng, limit)
 
     override suspend fun getStopDetail(
         city: TransitCity,

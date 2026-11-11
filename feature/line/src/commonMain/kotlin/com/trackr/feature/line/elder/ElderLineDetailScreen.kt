@@ -41,6 +41,10 @@ import com.trackr.feature.line.resources.Res as LineRes
 import com.trackr.feature.line.resources.line_detail_error
 import com.trackr.feature.line.resources.line_detail_diversion_body
 import com.trackr.feature.line.resources.line_detail_hours
+import com.trackr.feature.line.resources.line_detail_loop
+import com.trackr.feature.line.resources.line_detail_loop_plain
+import com.trackr.ui.screens.linedetail.LoopLineCaption
+import com.trackr.ui.screens.linedetail.loopLineCaption
 import com.trackr.feature.line.resources.line_detail_loading
 import com.trackr.feature.line.resources.line_elder_alert_me
 import com.trackr.feature.line.resources.line_elder_alerting
@@ -212,6 +216,21 @@ private fun ElderLineContent(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
+            )
+        }
+        when (val caption = loopLineCaption(static)) {
+            null -> Unit
+            is LoopLineCaption.Via -> Text(
+                text = stringResource(LineRes.string.line_detail_loop, caption.midStop),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            LoopLineCaption.Plain -> Text(
+                text = stringResource(LineRes.string.line_detail_loop_plain),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
         line.diversionNote?.let { note ->

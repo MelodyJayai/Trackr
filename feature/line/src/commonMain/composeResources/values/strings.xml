@@ -38,6 +38,9 @@
     <string name="line_detail_fare">票价 %1$s</string>
     <string name="line_detail_stop_count">共 %1$s 站</string>
     <string name="line_detail_timetable">时刻表 ›</string>
+    <!-- 环线没有对向，换向按钮不画；用折返站说明这不是漏了按钮 -->
+    <string name="line_detail_loop">环线 · 经%1$s折返</string>
+    <string name="line_detail_loop_plain">环线</string>
     <!-- 临时改道提示（掌上公交只在线路名里写「（临时改道）」） -->
     <string name="line_detail_diversion_body">这条线正在%1$s，走向和站点可能和平时不同，以下面的站点为准</string>
     <string name="line_detail_track_this">追踪这班车</string>

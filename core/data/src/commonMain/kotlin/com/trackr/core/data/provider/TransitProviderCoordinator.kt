@@ -6,7 +6,9 @@ import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.EngineMode
 import com.trackr.core.model.LineTimetable
+import com.trackr.core.model.ChelaileCitySnapshot
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.ProvinceCityCatalog
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitSearchResult
@@ -24,6 +26,16 @@ val EngineMode.dataSource: DataSourceType
         EngineMode.CHELAILE -> DataSourceType.CHELAILE
         EngineMode.MYGOLBS -> DataSourceType.MYGOLBS
     }
+
+/**
+ * 一次城市列表查询。
+ *
+ * [authoritative] 为 false 时 [cities] 来自内置快照（或快照和掌上公交的合并），不能当成已经确认的编号缓存。
+ */
+data class SupportedCityList(
+    val cities: List<TransitCity>,
+    val authoritative: Boolean
+)
 
 /**
  * 实时公交数据源分发协调器（D1：数据源二选一，不做聚合）
@@ -46,15 +58,21 @@ class TransitProviderCoordinator(
 
     private var cachedCities: List<TransitCity> = emptyList()
 
+    /** 缓存里的列表是不是服务器确认过的。快照不能占着这个位置，否则网络恢复后也不会再拉。 */
+    private var cityListAuthoritative: Boolean = false
+
     /** 某个数据源对应的 Provider；认不出来返回 null */
     fun providerFor(source: DataSourceType): ITransitProvider? = providers[source]
 
     /**
-     * 并发获取车来了与掌上公交支持的城市列表，并进行编码与独有城市双源融合
+     * 并发获取车来了与掌上公交支持的城市列表，并进行编码与独有城市双源融合。
+     *
+     * 车来了列表没拉到时用 [ChelaileCitySnapshot]，但 [SupportedCityList.authoritative] 为 false，
+     * 不写入缓存。否则一次断网就会把快照里的 cityId 当成最终结果，网络恢复后也不再更正。
      */
-    suspend fun getSupportedCities(forceRefresh: Boolean = false): List<TransitCity> {
-        if (!forceRefresh && cachedCities.isNotEmpty()) {
-            return cachedCities
+    suspend fun getSupportedCities(forceRefresh: Boolean = false): SupportedCityList {
+        if (!forceRefresh && cityListAuthoritative && cachedCities.isNotEmpty()) {
+            return SupportedCityList(cachedCities, authoritative = true)
         }
 
         val chelaileProvider = providers[DataSourceType.CHELAILE]
@@ -70,6 +88,9 @@ class TransitProviderCoordinator(
             Pair(clDeferred.await(), mgDeferred.await())
         }
 
+        val chelaileFromNetwork = chelaileCities.isNotEmpty()
+        val chelaileBase = if (chelaileFromNetwork) chelaileCities else ChelaileCitySnapshot.cities()
+
         // 构建掌上公交映射 cleanName -> TransitCity
         val mgMap = LinkedHashMap<String, TransitCity>()
         for (mgCity in mygolbsCities) {
@@ -83,7 +104,7 @@ class TransitProviderCoordinator(
         val result = ArrayList<TransitCity>()
 
         // 1. 以车来了城市为主干进行聚合去重，统一采用前者简洁名称（如“上海”而非“上海市”）
-        for (cCity in chelaileCities) {
+        for (cCity in chelaileBase) {
             val cleanName = ProvinceCityCatalog.cleanCityName(cCity.cityName)
             val mgMatch = mgMap[cleanName]
             val effectiveProv = if (cCity.province.isNotBlank()) {
@@ -99,7 +120,7 @@ class TransitProviderCoordinator(
                 cCity.copy(
                     cityName = displayName,
                     province = effectiveProv,
-                    mygolbsCityCode = mgMatch?.mygolbsCityCode
+                    mygolbsCityCode = mgMatch?.mygolbsCityCode ?: cCity.mygolbsCityCode
                 )
             )
         }
@@ -123,8 +144,16 @@ class TransitProviderCoordinator(
             }
         }
 
-        cachedCities = result
-        return result
+        if (chelaileFromNetwork) {
+            cachedCities = result
+            cityListAuthoritative = true
+            return SupportedCityList(result, authoritative = true)
+        }
+        // 这次没拉到车来了：以前确认过的列表还在就继续用，不要被快照盖掉
+        if (cityListAuthoritative && cachedCities.isNotEmpty()) {
+            return SupportedCityList(cachedCities, authoritative = true)
+        }
+        return SupportedCityList(result, authoritative = false)
     }
 
     /** 逆地理先问车来了、再问掌上公交（和数据源选哪个无关，只用来定城市） */
@@ -177,14 +206,24 @@ class TransitProviderCoordinator(
         wgsLng: Double,
         limit: Int = 4,
         mode: EngineMode = EngineMode.CHELAILE
-    ): List<NearbyStop> {
+    ): List<NearbyStop> = getNearbyStopsPage(city, wgsLat, wgsLng, limit, mode).stops
+
+    /** 附近站，附带数据源的城市提示（车来了 toast）。失败时站列表为空、提示为空。 */
+    suspend fun getNearbyStopsPage(
+        city: TransitCity,
+        wgsLat: Double,
+        wgsLng: Double,
+        limit: Int = 4,
+        mode: EngineMode = EngineMode.CHELAILE
+    ): NearbyStopsPage {
         val targetProvider = providers[mode.dataSource]
 
         if (targetProvider != null && targetProvider.supportsLocationRadar()) {
-            return runCatching { targetProvider.getNearbyStops(city, wgsLat, wgsLng, limit) }.getOrDefault(emptyList())
+            return runCatching { targetProvider.getNearbyStopsPage(city, wgsLat, wgsLng, limit) }
+                .getOrDefault(NearbyStopsPage(emptyList()))
         }
 
-        return emptyList()
+        return NearbyStopsPage(emptyList())
     }
 
     /**

@@ -90,6 +90,24 @@ class LineDetailBottomBarTest {
         show(stateOf(reverse = null))
 
         composeTestRule.onNodeWithContentDescription("换向").assertDoesNotExist()
+        composeTestRule.onNodeWithText("环线", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun loopLine_hidesSwitchAndShowsTurnaround() {
+        val loop = line.copy(
+            startStop = "秀峰公交总站",
+            endStop = "秀峰公交总站",
+            loopMidStopName = "六约新村东"
+        )
+        show(
+            stateOf(reverse = null).copy(
+                static = LineStatic(line = loop, reverseDirection = null, stops = stops)
+            )
+        )
+
+        composeTestRule.onNodeWithContentDescription("换向").assertDoesNotExist()
+        composeTestRule.onNodeWithText("环线 · 经六约新村东折返").assertIsDisplayed()
     }
 
     @Test

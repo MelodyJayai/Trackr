@@ -11,8 +11,10 @@ import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.FavoriteItem
 import com.trackr.core.model.FavoriteStation
 import com.trackr.core.model.LineTimetable
+import com.trackr.core.model.CityIdRepair
 import com.trackr.core.model.NearbyStop
 import com.trackr.core.model.NearbyStopLineStatus
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.ProvinceCityCatalog
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitSearchResult
@@ -120,9 +122,16 @@ class DefaultRealtimeRepository(
         if (!forceRefresh && cachedCities.isNotEmpty()) {
             return@runCatching cachedCities
         }
-        val cities = coordinator.getSupportedCities(forceRefresh)
-        cachedCities = cities
-        cities
+        val loaded = coordinator.getSupportedCities(forceRefresh)
+        if (loaded.authoritative) {
+            cachedCities = loaded.cities
+            // 已保存的城市名还在，但 cityId 是旧表里的错误编号时，改成服务器这份
+            val corrected = CityIdRepair.alignWithAuthoritative(settings.selectedCity.value, loaded.cities)
+            if (corrected != null) {
+                settings.selectCity(corrected)
+            }
+        }
+        loaded.cities
     }
 
     override suspend fun resolveCityByLocation(wgsLat: Double, wgsLng: Double): Result<TransitCity?> = runCatching {
@@ -199,8 +208,8 @@ class DefaultRealtimeRepository(
         wgsLat: Double,
         wgsLng: Double,
         limit: Int
-    ): Result<List<NearbyStop>> = runCatching {
-        coordinator.getNearbyStops(city, wgsLat, wgsLng, limit, settings.engineMode.value)
+    ): Result<NearbyStopsPage> = runCatching {
+        coordinator.getNearbyStopsPage(city, wgsLat, wgsLng, limit, settings.engineMode.value)
     }
 
     override suspend fun getStopDetail(

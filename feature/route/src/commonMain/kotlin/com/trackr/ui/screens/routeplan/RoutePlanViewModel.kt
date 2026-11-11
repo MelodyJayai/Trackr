@@ -541,7 +541,7 @@ class RoutePlanViewModel(
             ?: locationRepository?.lastKnown(MAX_LAST_KNOWN_AGE_MS)?.let { it.lat to it.lng }
             ?: return null
         val nearby = runCatching {
-            realtime.getNearbyStops(city, lat, lng, 1).getOrNull()?.firstOrNull()
+            realtime.getNearbyStops(city, lat, lng, 1).getOrNull()?.stops?.firstOrNull()
         }.getOrNull()
         // 系统定位是 WGS-84，高德算路要求 GCJ-02，必须显式转换后再拼参数
         val (originGcjLat, originGcjLng) = CoordTransform.wgs84ToGcj02(lat, lng)

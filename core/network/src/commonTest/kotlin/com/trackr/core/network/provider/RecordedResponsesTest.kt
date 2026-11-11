@@ -50,7 +50,9 @@ class RecordedResponsesTest {
 
     @Test
     fun chelaile_nearbyStops_fromRecordedHomePage() = runBlocking {
-        val stops = ChelaileApiClient(chelaileHttp()).getNearbyStops("034", 31.2304, 121.4737, 4)
+        val page = ChelaileApiClient(chelaileHttp()).getNearbyStops("034", 31.2304, 121.4737, 4)
+        val stops = page.stops
+        assertNull(page.notice)
 
         assertEquals(listOf("西藏中路", "西藏南路宁海东路", "延安东路西藏中路", "人民广场（武胜路）"), stops.map { it.name })
         val first = stops.first()

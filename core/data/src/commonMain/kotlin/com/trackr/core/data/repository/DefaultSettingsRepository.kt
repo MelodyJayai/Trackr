@@ -68,15 +68,23 @@ class DefaultSettingsRepository private constructor(
     override val fontScalePromptDismissed: StateFlow<Boolean> = _fontScalePromptDismissed.asStateFlow()
 
     private fun loadInitialCity(): TransitCity {
-        val cityJson = initial.selectedCityJson
-        if (!cityJson.isNullOrBlank()) {
+        val parsed = initial.selectedCityJson?.takeIf { it.isNotBlank() }?.let { cityJson ->
             try {
                 val city = json.decodeFromString<TransitCity>(cityJson)
                 val prov = if (city.province.isNotBlank()) city.province else ProvinceCityCatalog.inferProvince(city.cityName)
-                return city.copy(province = prov)
-            } catch (_: Exception) {}
+                city.copy(province = prov)
+            } catch (_: Exception) {
+                null
+            }
         }
-        return TransitCity(cityId = "034", cityName = "上海", pinyin = "ShangHai", supportSubway = true, isHot = true, province = "直辖市")
+        val base = parsed ?: TransitCity(
+            cityId = "034", cityName = "上海", pinyin = "ShangHai", supportSubway = true, isHot = true, province = "直辖市"
+        )
+        val repaired = CityIdRepair.repairSnapshotMismatch(base)
+        if (parsed != null && repaired != parsed) {
+            writer.enqueue { store.saveSelectedCityJson(json.encodeToString(repaired)) }
+        }
+        return repaired
     }
 
     override fun setNearbyStopsCount(count: Int) {

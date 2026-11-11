@@ -8,6 +8,7 @@ import com.trackr.core.model.BusLineDirection
 import com.trackr.core.model.DataSourceType
 import com.trackr.core.model.LineTimetable
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.TransitCity
 import com.trackr.core.model.TransitSearchResult
 import com.trackr.core.model.isPureSubwayStation
@@ -93,13 +94,21 @@ class ChelaileTransitProvider(
         wgsLat: Double,
         wgsLng: Double,
         limit: Int
-    ): List<NearbyStop> {
-        val rawStops = chelaileClient.getNearbyStops(
+    ): List<NearbyStop> = getNearbyStopsPage(city, wgsLat, wgsLng, limit).stops
+
+    override suspend fun getNearbyStopsPage(
+        city: TransitCity,
+        wgsLat: Double,
+        wgsLng: Double,
+        limit: Int
+    ): NearbyStopsPage {
+        val fetched = chelaileClient.getNearbyStops(
             cityId = city.cityId,
             wgsLat = wgsLat,
             wgsLng = wgsLng,
             limit = limit
-        ).filter { !it.isPureSubwayStation }
+        )
+        val rawStops = fetched.stops.filter { !it.isPureSubwayStation }
 
         // 车来了 encryptedHomePage 接口只对前 2 个站点填充实时到站数据（hasBusInfo: true），
         // 从第 3 个站点开始 lines 中的实时车辆为空且 shortDesc 为空。
@@ -110,11 +119,9 @@ class ChelaileTransitProvider(
                     (!stop.physicalStId.isNullOrBlank() || stop.stopId.isNotBlank())
         }
 
-        if (!needsCompletion) {
-            return rawStops
-        }
-
-        return coroutineScope {
+        val stops = if (!needsCompletion) {
+            rawStops
+        } else coroutineScope {
             rawStops.map { stop ->
                 async {
                     val needsFetch = stop.lines.isNotEmpty() &&
@@ -154,6 +161,7 @@ class ChelaileTransitProvider(
                 }
             }.awaitAll()
         }
+        return NearbyStopsPage(stops = stops, notice = fetched.notice)
     }
 
     override suspend fun getStopDetail(
@@ -240,7 +248,7 @@ class ChelaileTransitProvider(
                 wgsLat = stationLat,
                 wgsLng = stationLng,
                 limit = 6
-            ).filter { !it.isPureSubwayStation }
+            ).stops.filter { !it.isPureSubwayStation }
 
             val matched = if (!request.stopName.isNullOrBlank()) {
                 val filtered = nearby.filter { it.name.contains(request.stopName) || request.stopName.contains(it.name) }

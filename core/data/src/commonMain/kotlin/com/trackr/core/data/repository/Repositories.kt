@@ -15,6 +15,7 @@ import com.trackr.core.model.FavoriteStation
 import com.trackr.core.model.FavoriteStationLine
 import com.trackr.core.model.LineTimetable
 import com.trackr.core.model.NearbyStop
+import com.trackr.core.model.NearbyStopsPage
 import com.trackr.core.model.RailMode
 import com.trackr.core.model.ThemeMode
 import com.trackr.core.model.TransitCity
@@ -185,12 +186,16 @@ interface RealtimeRepository {
     suspend fun getSupportedCities(forceRefresh: Boolean = false): Result<List<TransitCity>>
     suspend fun resolveCityByLocation(wgsLat: Double, wgsLng: Double): Result<TransitCity?>
 
+    /**
+     * 附近站。[NearbyStopsPage.notice] 非空时是数据源的城市提示
+     * （车来了在 cityId 和坐标对不上时会说明「已为您选择某市中心的车站」），调用方应展示给用户。
+     */
     suspend fun getNearbyStops(
         city: TransitCity,
         wgsLat: Double,
         wgsLng: Double,
         limit: Int = 4
-    ): Result<List<NearbyStop>>
+    ): Result<NearbyStopsPage>
 
     suspend fun getStopDetail(
         city: TransitCity,
